@@ -53,6 +53,70 @@ function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryStat
 afterEach(cleanup)
 
 describe('ModelSelect reasoning effort', () => {
+  it('searches model and provider names and ids, then resets when reopened', async () => {
+    const groups = [
+      {
+        id: 'local-9router',
+        name: 'Local 9Router',
+        models: [
+          { id: 'combo.deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+          { id: 'nvidia/qwen3-coder-next', name: 'Qwen Coder Next' },
+        ],
+      },
+      {
+        id: 'cloud-provider',
+        name: 'Cloud Models',
+        models: [{ id: 'other-model', name: 'Other Model' }],
+      },
+    ]
+    const directory = createSnapshotStore(state({
+      groups,
+      current: { provider: 'local-9router', model: 'combo.deepseek-v4-pro' },
+    }))
+    const select = vi.fn(async (selection: ModelSelection) => {
+      directory.set(state({ groups, current: selection }))
+      return true
+    })
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={select}
+      t={t}
+    />)
+
+    const trigger = screen.getByRole('button', { name: /DeepSeek V4 Pro/ })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
+    const search = screen.getByRole('searchbox', { name: '搜索模型' })
+
+    fireEvent.change(search, { target: { value: '  sEeK-v4  ' } })
+    expect(screen.getByRole('menuitemradio', { name: 'DeepSeek V4 Pro' })).toBeTruthy()
+    expect(screen.queryByRole('menuitemradio', { name: 'Qwen Coder Next' })).toBeNull()
+
+    fireEvent.change(search, { target: { value: 'LOCAL 9ROUTER' } })
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(2)
+    expect(screen.queryByRole('menuitemradio', { name: 'Other Model' })).toBeNull()
+
+    fireEvent.change(search, { target: { value: '' } })
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+
+    fireEvent.change(search, { target: { value: 'not-a-model' } })
+    expect(screen.getByText('未找到匹配的模型。')).toBeTruthy()
+
+    fireEvent.change(search, { target: { value: 'CODER-NEXT' } })
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Qwen Coder Next' }))
+    await waitFor(() => {
+      expect(select).toHaveBeenCalledWith({ provider: 'local-9router', model: 'nvidia/qwen3-coder-next' })
+    })
+
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
+    expect(screen.getByRole<HTMLInputElement>('searchbox', { name: '搜索模型' }).value).toBe('')
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+  })
+
   it('renders effort names without descriptions and submits the effort as part of the session selection', async () => {
     const directory = createSnapshotStore<ModelDirectoryState>(state())
     const select = vi.fn(async (selection: ModelSelection) => {
