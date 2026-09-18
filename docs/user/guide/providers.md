@@ -34,7 +34,7 @@ Discovery reads the listing formats common gateways publish, but not every endpo
 
 ## Select a model
 
-Configured providers appear in the model picker. Selecting a model also makes it the default for new sessions. A session that has already sent a request retains the model recorded in its own log.
+Configured providers appear in the model picker. Search matches model and provider names and ids without regard to letter case. Selecting a model also makes it the default for new sessions. A session that has already sent a request retains the model recorded in its own log.
 
 If a saved default names a provider that was deleted, the composer displays **Select model** and blocks input until another model is selected.
 

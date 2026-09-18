@@ -61,6 +61,7 @@ export function ModelSelect(
   )
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
+  const [query, setQuery] = useState('')
   // The in-menu error strip serves catalog loads (its Retry re-runs the
   // load); a rejected SELECTION announces through the transient toast
   // instead, so the strip renders only while the latest failure-capable
@@ -87,6 +88,21 @@ export function ModelSelect(
           : { reasoningEffort: model.reasoning.defaultEffort },
       } satisfies ModelSelection,
     }))), [state.groups])
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleGroups = useMemo(() => {
+    if (normalizedQuery === '') return state.groups
+    return state.groups
+      .map(group => ({
+        ...group,
+        models: group.models.filter(model => [
+          group.name,
+          group.id,
+          model.name,
+          model.id,
+        ].join(' ').toLowerCase().includes(normalizedQuery)),
+      }))
+      .filter(group => group.models.length > 0)
+  }, [normalizedQuery, state.groups])
   const selectedIndex = state.current === null
     ? -1
     : choices.findIndex(c => c.selection.provider === state.current?.provider && c.selection.model === state.current.model)
@@ -191,6 +207,7 @@ export function ModelSelect(
 
   const show = (): void => {
     setPane('root')
+    setQuery('')
     setOpen(true)
     reload()
   }
@@ -408,8 +425,17 @@ export function ModelSelect(
                   <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
                 </div>
               ))}
+              <input
+                type="search"
+                className={css.search}
+                value={query}
+                placeholder={t('search.placeholder')}
+                aria-label={t('search.aria')}
+                autoComplete="off"
+                onChange={(event) => { setQuery(event.target.value) }}
+              />
               <div className={clsx(css.groups, 'scrollable')}>
-                {state.groups.map((group) => {
+                {visibleGroups.map((group) => {
                   const headingId = `${id}-${group.id}`
                   return (
                     <section role="group" aria-labelledby={headingId} className={css.group} key={group.id}>
@@ -443,6 +469,9 @@ export function ModelSelect(
               </div>
               {state.status === 'ready' && choices.length === 0 && (
                 <div className={css.empty}>{t('empty.models')}</div>
+              )}
+              {state.status === 'ready' && choices.length > 0 && visibleGroups.length === 0 && (
+                <div className={css.empty}>{t('empty.search')}</div>
               )}
             </>
           )}
